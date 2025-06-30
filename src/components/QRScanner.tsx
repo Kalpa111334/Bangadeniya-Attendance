@@ -58,6 +58,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
   const [scannerStatus, setScannerStatus] = useState<'initializing' | 'ready' | 'scanning' | 'processing'>('initializing');
 
   const SCAN_COOLDOWN = 2000; // 2 seconds between scans
+  const CHECKIN_TO_CHECKOUT_COOLDOWN = 3 * 60 * 1000; // 3 minutes in milliseconds
   const CHECKOUT_TO_CHECKIN_COOLDOWN = 3 * 60 * 1000; // 3 minutes in milliseconds
   const MAX_SCAN_TIME = 500; // 0.5 seconds max scan time
   const MIN_LIGHT_LEVEL = 5; // 5 lux minimum
@@ -371,7 +372,27 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
 
       // Check the sequence and timing
       if (attendance.first_check_in && !attendance.first_check_out) {
-        // User has checked in but not checked out - only allow first check-out
+        // User has checked in but not checked out
+        // Check if 3-minute cooldown has passed since first check-in
+        const firstCheckInTime = new Date(attendance.first_check_in);
+        const timeSinceCheckIn = now.getTime() - firstCheckInTime.getTime();
+        const cooldownRemaining = CHECKIN_TO_CHECKOUT_COOLDOWN - timeSinceCheckIn;
+
+        if (timeSinceCheckIn < CHECKIN_TO_CHECKOUT_COOLDOWN) {
+          // Still in cooldown period
+          const remainingMinutes = Math.ceil(cooldownRemaining / (60 * 1000));
+          const remainingSeconds = Math.ceil((cooldownRemaining % (60 * 1000)) / 1000);
+          
+          return {
+            isValid: false,
+            nextAction: 'first_check_out',
+            errorMessage: `Cooldown period active. Please wait ${remainingMinutes}m ${remainingSeconds}s before checking out.`,
+            cooldownRemaining,
+            canProceed: false
+          };
+        }
+
+        // Cooldown has passed, allow first check-out
         return {
           isValid: true,
           nextAction: 'first_check_out',
@@ -736,8 +757,8 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
       title: 'Attendance Recorded',
       html: `
         <div class="text-center">
-          <div class="mb-4">
-            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+          <div className="mb-4">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
               <svg class="w-8 h-8 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
               </svg>
@@ -746,7 +767,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
           <p class="text-lg font-semibold text-gray-800">${employeeName}</p>
           <p class="text-blue-600 font-medium">${actionText}</p>
           <p class="text-gray-500">${timeStr}</p>
-          <div class="mt-4 p-3 bg-green-50 rounded-lg">
+          <div className="mt-4 p-3 bg-green-50 rounded-lg">
             <p class="text-sm text-green-700">✓ Scan completed in ${metrics.processingTime}ms</p>
             <p class="text-xs text-green-600 mt-1">Light level: ${metrics.lightLevel.toFixed(0)} lux</p>
           </div>
@@ -766,7 +787,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
         return `
           <div class="mt-3 p-2 bg-blue-50 rounded-lg">
             <p class="text-xs text-blue-700">
-              <strong>Next:</strong> Check out when leaving for break/lunch
+              <strong>Next:</strong> Wait 3 minutes before checking out for break/lunch
             </p>
           </div>
         `;
@@ -1030,6 +1051,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
                 <button
                   onClick={onClose}
                   className="text-white hover:text-gray-200 p-1"
+                  title="Close Scanner"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1134,6 +1156,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
               </div>
               <div className="text-xs text-blue-700 space-y-1">
                 <div>1️⃣ First check-in (start of day)</div>
+                <div>⏱️ 3-minute mandatory cooldown</div>
                 <div>2️⃣ First check-out (break/lunch)</div>
                 <div>⏱️ 3-minute mandatory cooldown</div>
                 <div>3️⃣ Second check-in (return from break)</div>
