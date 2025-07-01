@@ -35,6 +35,8 @@ interface Employee {
   id: string;
   name: string;
   qr_code: string;
+  first_name: string;
+  last_name: string;
   [key: string]: any;
 }
 
@@ -163,74 +165,124 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
 
   const processAttendance = async (employee: Employee): Promise<void> => {
     try {
-      const { data: lastAttendance } = await supabase
-        .from('attendance')
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check if there's an existing attendance record for today
+      const { data: existingRecord, error: fetchError } = await supabase
+        .from('attendance_records')
         .select('*')
         .eq('employee_id', employee.id)
-        .order('timestamp', { ascending: false })
-        .limit(1)
+        .eq('date', today)
         .single();
 
-      const action = lastAttendance?.action === 'check-in' ? 'check-out' : 'check-in';
-      const timestamp = new Date().toISOString();
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "not found" error
+        console.error('Error fetching attendance:', fetchError);
+        throw new Error('Failed to check existing attendance');
+      }
 
-      // Validate cooldown period
-      if (lastAttendance) {
-        const timeSinceLastScan = Date.now() - new Date(lastAttendance.timestamp).getTime();
-        const cooldownPeriod = action === 'check-in' 
-          ? COOLDOWN_PERIODS.CHECKOUT_TO_CHECKIN 
-          : COOLDOWN_PERIODS.CHECKIN_TO_CHECKOUT;
+      const now = new Date();
+      let updateData: any = {};
 
-        if (timeSinceLastScan < cooldownPeriod) {
-          throw new Error(`Please wait ${Math.ceil((cooldownPeriod - timeSinceLastScan) / 1000)} seconds before ${action}`);
+      if (!existingRecord) {
+        // First check-in of the day
+        updateData = {
+          employee_id: employee.id,
+          date: today,
+          first_check_in: now.toISOString(),
+          is_late: await isLate(now),
+          total_hours: 0
+        };
+      } else {
+        // Determine which field to update based on existing data
+        if (!existingRecord.first_check_out) {
+          updateData.first_check_out = now.toISOString();
+          updateData.total_hours = calculateHours(
+            new Date(existingRecord.first_check_in),
+            now
+          );
+        } else if (!existingRecord.second_check_in) {
+          updateData.second_check_in = now.toISOString();
+        } else if (!existingRecord.second_check_out) {
+          updateData.second_check_out = now.toISOString();
+          const firstSession = calculateHours(
+            new Date(existingRecord.first_check_in),
+            new Date(existingRecord.first_check_out)
+          );
+          const secondSession = calculateHours(
+            new Date(existingRecord.second_check_in),
+            now
+          );
+          updateData.total_hours = firstSession + secondSession;
+        } else {
+          throw new Error('All check-ins and check-outs are completed for today');
         }
       }
 
-      const attendanceRecord: AttendanceRecord = {
-        employeeId: employee.id,
-        timestamp,
-        action: action as 'check-in' | 'check-out',
-      };
+      const { error: upsertError } = !existingRecord
+        ? await supabase.from('attendance_records').insert([updateData])
+        : await supabase
+            .from('attendance_records')
+            .update(updateData)
+            .eq('employee_id', employee.id)
+            .eq('date', today);
 
-      if (action === 'check-in') {
-        const { isLate } = await checkIfLate(timestamp);
-        attendanceRecord.isLate = isLate;
-      } else if (lastAttendance) {
-        attendanceRecord.totalHours = calculateTotalHours(lastAttendance.timestamp, timestamp);
+      if (upsertError) {
+        console.error('Error saving attendance:', upsertError);
+        throw new Error('Failed to save attendance record');
       }
 
-      const { error } = await supabase
-        .from('attendance')
-        .insert([attendanceRecord]);
+      // Determine the action type for feedback
+      const action = determineActionType(existingRecord, updateData);
+      
+      await showSuccessFeedback(employee, action, now.toISOString());
+      await notifyAttendance(employee, action, {
+        employeeId: employee.id,
+        timestamp: now.toISOString(),
+        action: action as 'check-in' | 'check-out',
+        isLate: updateData.is_late
+      });
 
-      if (error) throw error;
-
-      await showSuccessFeedback(employee, action, timestamp);
-      await notifyAttendance(employee, action, attendanceRecord);
     } catch (error: any) {
-      throw new Error(`Failed to process attendance: ${error.message}`);
+      console.error('Attendance processing error:', error);
+      throw new Error(error.message || 'Failed to process attendance');
     }
   };
 
-  const checkIfLate = async (timestamp: string): Promise<{ isLate: boolean }> => {
-    const checkInTime = new Date(timestamp);
-    const scheduleTime = new Date(checkInTime);
-    scheduleTime.setHours(9, 0, 0, 0); // Assuming 9 AM is the start time
+  const isLate = async (checkInTime: Date): Promise<boolean> => {
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'work_start_time')
+      .single();
 
-    return {
-      isLate: checkInTime > scheduleTime
-    };
+    const startTime = settings?.value || '09:00';
+    const [hours, minutes] = startTime.split(':').map(Number);
+    
+    const scheduleTime = new Date(checkInTime);
+    scheduleTime.setHours(hours, minutes, 0, 0);
+
+    return checkInTime > scheduleTime;
   };
 
-  const calculateTotalHours = (checkIn: string, checkOut: string): number => {
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const calculateHours = (start: Date, end: Date): number => {
+    return Number(((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(2));
+  };
+
+  const determineActionType = (
+    existingRecord: any,
+    updateData: any
+  ): string => {
+    if (!existingRecord) return 'check-in';
+    if (updateData.first_check_out) return 'check-out';
+    if (updateData.second_check_in) return 'check-in';
+    if (updateData.second_check_out) return 'check-out';
+    return 'check-in';
   };
 
   const showSuccessFeedback = async (employee: Employee, action: string, timestamp: string): Promise<void> => {
     const formattedTime = format(new Date(timestamp), 'hh:mm a');
-    const message = `${employee.name} ${action} successful at ${formattedTime}`;
+    const actionText = action === 'check-in' ? 'Check-in' : 'Check-out';
+    const message = `${employee.first_name} ${employee.last_name} ${actionText.toLowerCase()} successful at ${formattedTime}`;
     
     await voiceService.speak(message);
     await Swal.fire({
