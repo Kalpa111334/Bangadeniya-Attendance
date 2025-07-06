@@ -195,6 +195,14 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
       } else {
         // Determine which field to update based on existing data
         if (!existingRecord.first_check_out) {
+          // Check for three-minute cool-down period
+          const firstCheckInTime = new Date(existingRecord.first_check_in);
+          const timeDifference = now.getTime() - firstCheckInTime.getTime();
+          
+          if (timeDifference < 3 * 60 * 1000) { // 3 minutes in milliseconds
+            throw new Error('Please wait at least 3 minutes between first check-in and first check-out');
+          }
+
           updateData.first_check_out = now.toISOString();
           updateData.total_hours = calculateHours(
             new Date(existingRecord.first_check_in),
@@ -218,33 +226,29 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
         }
       }
 
-      const { error: upsertError } = !existingRecord
-        ? await supabase.from('attendance_records').insert([updateData])
-        : await supabase
-            .from('attendance_records')
-            .update(updateData)
-            .eq('employee_id', employee.id)
-            .eq('date', today);
+      // Perform the database update
+      const { error: updateError } = await supabase
+        .from('attendance_records')
+        .upsert({
+          ...existingRecord,
+          ...updateData
+        })
+        .select();
 
-      if (upsertError) {
-        console.error('Error saving attendance:', upsertError);
-        throw new Error('Failed to save attendance record');
+      if (updateError) {
+        console.error('Error updating attendance:', updateError);
+        throw new Error('Failed to update attendance');
       }
 
-      // Determine the action type for feedback
-      const action = determineActionType(existingRecord, updateData);
-      
-      await showSuccessFeedback(employee, action, now.toISOString());
-      await notifyAttendance(employee, action, {
-        employeeId: employee.id,
-        timestamp: now.toISOString(),
-        action: action as 'check-in' | 'check-out',
-        isLate: updateData.is_late
-      });
-
+      // Show success feedback and notify
+      await showSuccessFeedback(
+        employee, 
+        determineActionType(existingRecord, updateData), 
+        now.toISOString()
+      );
     } catch (error: any) {
-      console.error('Attendance processing error:', error);
-      throw new Error(error.message || 'Failed to process attendance');
+      handleError(error);
+      throw error;
     }
   };
 
@@ -385,15 +389,34 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
   };
 
   const handleError = (error: any): void => {
-    const errorMessage = error.message || 'An unknown error occurred';
-    updateScannerState({ error: errorMessage, status: 'ready' });
+    let errorMessage = 'An unknown error occurred';
     
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: errorMessage,
-      showConfirmButton: true
-    });
+    if (error.message.includes('3 minutes between first check-in and first check-out')) {
+      errorMessage = 'Please wait at least 3 minutes between your first check-in and first check-out.';
+      
+      // Use SweetAlert for a more user-friendly notification
+      Swal.fire({
+        icon: 'warning',
+        title: 'Wait Required',
+        text: errorMessage,
+        confirmButtonText: 'OK'
+      });
+    } else {
+      // Existing error handling logic
+      errorMessage = error.message || 'Failed to process attendance';
+      
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage,
+        confirmButtonText: 'OK'
+      });
+    }
+
+    console.error('Attendance processing error:', error);
+    
+    // Optional: Add voice notification for accessibility
+    voiceService.announceError(errorMessage);
   };
 
   const isRecentlySeen = (qrCode: string): boolean => {
