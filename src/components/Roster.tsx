@@ -248,6 +248,8 @@ export const Roster: React.FC = () => {
               value={selectedWeek}
               onChange={(e) => setSelectedWeek(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              title="Select week"
+              aria-label="Select week"
             />
             <button
               onClick={() => setShowAddModal(true)}
@@ -313,14 +315,16 @@ export const Roster: React.FC = () => {
                                 <button
                                   onClick={() => setEditingEntry(rosterEntry)}
                                   className="text-blue-600 hover:text-blue-800"
-                                  title="Edit"
+                                  title="Edit shift"
+                                  aria-label="Edit shift"
                                 >
                                   <Edit3 className="h-3 w-3" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteRoster(rosterEntry)}
                                   className="text-red-600 hover:text-red-800"
-                                  title="Delete"
+                                  title="Delete shift"
+                                  aria-label="Delete shift"
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </button>
@@ -349,6 +353,8 @@ export const Roster: React.FC = () => {
                   <button
                     onClick={() => setShowAddModal(false)}
                     className="text-gray-400 hover:text-gray-600"
+                    title="Close modal"
+                    aria-label="Close modal"
                   >
                     <X className="h-6 w-6" />
                   </button>
@@ -366,6 +372,8 @@ export const Roster: React.FC = () => {
                         name="employeeId"
                         required
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        title="Select employee"
+                        aria-label="Select employee"
                       >
                         <option value="">Select Employee</option>
                         {employees.map(emp => (
@@ -384,6 +392,8 @@ export const Roster: React.FC = () => {
                         name="date"
                         required
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        title="Select date"
+                        aria-label="Select date"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -396,6 +406,8 @@ export const Roster: React.FC = () => {
                           name="shiftStart"
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          title="Select shift start time"
+                          aria-label="Select shift start time"
                         />
                       </div>
                       <div>
@@ -407,6 +419,8 @@ export const Roster: React.FC = () => {
                           name="shiftEnd"
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          title="Select shift end time"
+                          aria-label="Select shift end time"
                         />
                       </div>
                     </div>
@@ -421,6 +435,8 @@ export const Roster: React.FC = () => {
                         min="0"
                         max="480"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        title="Enter break duration in minutes"
+                        aria-label="Enter break duration in minutes"
                       />
                     </div>
                   </div>
@@ -456,6 +472,8 @@ export const Roster: React.FC = () => {
                   <button
                     onClick={() => setEditingEntry(null)}
                     className="text-gray-400 hover:text-gray-600"
+                    title="Close modal"
+                    aria-label="Close modal"
                   >
                     <X className="h-6 w-6" />
                   </button>
@@ -474,6 +492,8 @@ export const Roster: React.FC = () => {
                         value={`${editingEntry.employees.first_name} ${editingEntry.employees.last_name}`}
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                        title="Employee name"
+                        aria-label="Employee name"
                       />
                     </div>
                     <div>
@@ -485,6 +505,8 @@ export const Roster: React.FC = () => {
                         value={editingEntry.date}
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                        title="Shift date"
+                        aria-label="Shift date"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -498,6 +520,8 @@ export const Roster: React.FC = () => {
                           defaultValue={editingEntry.shift_start}
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          title="Select shift start time"
+                          aria-label="Select shift start time"
                         />
                       </div>
                       <div>
@@ -510,6 +534,8 @@ export const Roster: React.FC = () => {
                           defaultValue={editingEntry.shift_end}
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          title="Select shift end time"
+                          aria-label="Select shift end time"
                         />
                       </div>
                     </div>
@@ -524,6 +550,8 @@ export const Roster: React.FC = () => {
                         min="0"
                         max="480"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        title="Enter break duration in minutes"
+                        aria-label="Enter break duration in minutes"
                       />
                     </div>
                   </div>

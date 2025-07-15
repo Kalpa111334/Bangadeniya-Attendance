@@ -12,6 +12,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         <button
           onClick={onMenuClick}
           className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          title="Toggle navigation menu"
+          aria-label="Toggle navigation menu"
         >
           <Menu className="w-5 h-5 text-gray-600" />
         </button>
@@ -27,9 +29,13 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       </div>
       
       <div className="flex items-center space-x-4">
-        <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
+        <button 
+          className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          title="Open notifications"
+          aria-label="Open notifications"
+        >
           <Bell className="w-5 h-5 text-gray-600" />
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" aria-hidden="true"></span>
         </button>
         
         <div className="flex items-center space-x-2">

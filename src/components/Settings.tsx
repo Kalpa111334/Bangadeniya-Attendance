@@ -206,6 +206,8 @@ export const Settings: React.FC = () => {
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
+                title="General Settings"
+                aria-label="General Settings"
               >
                 <div className="flex items-center">
                   <SettingsIcon className="h-4 w-4 mr-2" />
@@ -219,6 +221,8 @@ export const Settings: React.FC = () => {
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
+                title="Push Notifications"
+                aria-label="Push Notifications"
               >
                 <div className="flex items-center">
                   <Bell className="h-4 w-4 mr-2" />
@@ -247,6 +251,8 @@ export const Settings: React.FC = () => {
                         value={settings.work_start_time}
                         onChange={(e) => handleInputChange('work_start_time', e.target.value)}
                         className="input-field"
+                        title="Work start time"
+                        aria-label="Work start time"
                       />
                     </div>
                     <div>
@@ -258,6 +264,8 @@ export const Settings: React.FC = () => {
                         value={settings.work_end_time}
                         onChange={(e) => handleInputChange('work_end_time', e.target.value)}
                         className="input-field"
+                        title="Work end time"
+                        aria-label="Work end time"
                       />
                     </div>
                     <div>
@@ -271,6 +279,8 @@ export const Settings: React.FC = () => {
                         value={settings.break_duration}
                         onChange={(e) => handleInputChange('break_duration', e.target.value)}
                         className="input-field"
+                        title="Break duration in minutes"
+                        aria-label="Break duration in minutes"
                       />
                     </div>
                   </div>
@@ -308,6 +318,9 @@ export const Settings: React.FC = () => {
                         value={settings.grace_period}
                         onChange={(e) => handleInputChange('grace_period', e.target.value)}
                         className="input-field"
+                        title="Grace period in minutes"
+                        aria-label="Grace period in minutes"
+                        placeholder="Enter grace period"
                       />
                       <p className="text-sm text-gray-500 mt-1">
                         Grace period before marking as late
@@ -324,6 +337,9 @@ export const Settings: React.FC = () => {
                         value={settings.late_threshold}
                         onChange={(e) => handleInputChange('late_threshold', e.target.value)}
                         className="input-field"
+                        title="Late threshold in minutes"
+                        aria-label="Late threshold in minutes"
+                        placeholder="Enter late threshold"
                       />
                       <p className="text-sm text-gray-500 mt-1">
                         Maximum late minutes before penalty
@@ -341,6 +357,9 @@ export const Settings: React.FC = () => {
                         value={settings.half_day_threshold}
                         onChange={(e) => handleInputChange('half_day_threshold', e.target.value)}
                         className="input-field"
+                        title="Half-day threshold in hours"
+                        aria-label="Half-day threshold in hours"
+                        placeholder="Enter half-day threshold"
                       />
                       <p className="text-sm text-gray-500 mt-1">
                         Minimum hours for half-day attendance
@@ -383,6 +402,8 @@ export const Settings: React.FC = () => {
                             type="button"
                             onClick={handleEnableNotifications}
                             className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                            title="Enable notifications"
+                            aria-label="Enable notifications"
                           >
                             Enable
                           </button>
@@ -405,6 +426,8 @@ export const Settings: React.FC = () => {
                         onClick={testVoiceFeedback}
                         disabled={voiceTestPlaying}
                         className="px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        title="Test voice feedback"
+                        aria-label="Test voice feedback"
                       >
                         {voiceTestPlaying ? 'Playing...' : 'Test Voice'}
                       </button>
@@ -418,6 +441,8 @@ export const Settings: React.FC = () => {
                     type="submit"
                     disabled={saving}
                     className="btn-primary"
+                    title="Save settings"
+                    aria-label="Save settings"
                   >
                     <Save className="h-5 w-5 mr-2" />
                     {saving ? 'Saving...' : 'Save Settings'}

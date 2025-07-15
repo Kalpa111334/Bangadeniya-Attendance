@@ -89,6 +89,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                 value={activeTab}
                 onChange={(e) => handleTabChange(e.target.value)}
                 className="input-field text-sm min-w-[140px]"
+                title="Navigation menu"
+                aria-label="Navigation menu"
               >
                 {tabs.map((tab) => (
                   <option key={tab.id} value={tab.id}>

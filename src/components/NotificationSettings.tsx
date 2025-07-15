@@ -428,6 +428,7 @@ export const NotificationSettings: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleCategoryToggle(category.id)}
+                      aria-label={`${category.enabled ? 'Disable' : 'Enable'} ${category.name} notifications`}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         category.enabled ? 'bg-blue-600' : 'bg-gray-200'
                       }`}

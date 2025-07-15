@@ -13,6 +13,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 
 interface AttendanceRecord {
@@ -49,6 +50,47 @@ interface ReportData {
     halfDayCount: number;
   };
 }
+
+// Constants
+const WORK_START_TIME = '07:30';
+
+// Helper functions
+const calculateLateDuration = (checkInTime: string | null): { duration: string, minutes: number } => {
+  if (!checkInTime) return { duration: '00:00', minutes: 0 };
+  
+  const startTime = new Date(`2000-01-01T${WORK_START_TIME}`);
+  const actualCheckIn = new Date(checkInTime);
+  
+  const checkInForComparison = new Date(
+    2000, 0, 1,
+    actualCheckIn.getHours(),
+    actualCheckIn.getMinutes()
+  );
+  
+  if (checkInForComparison <= startTime) {
+    return { duration: '00:00', minutes: 0 };
+  }
+  
+  const diffMinutes = Math.round((checkInForComparison.getTime() - startTime.getTime()) / (1000 * 60));
+  return {
+    duration: formatDuration(diffMinutes),
+    minutes: diffMinutes
+  };
+};
+
+const formatDuration = (minutes: number): string => {
+  if (minutes === 0) return '-';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return hours > 0 ? 
+    `${hours}h ${mins}m` : 
+    `${mins}m`;
+};
+
+const formatTime = (timeString: string | null): string => {
+  if (!timeString) return '-';
+  return format(new Date(timeString), 'hh:mm a');
+};
 
 export const Reports: React.FC = () => {
   const [reportData, setReportData] = useState<ReportData | null>(null);
@@ -133,7 +175,15 @@ export const Reports: React.FC = () => {
       if (error) throw error;
 
       // Process data
-      const records = attendanceData || [];
+      const records = (attendanceData || []).map(record => {
+        const lateDuration = calculateLateDuration(record.first_check_in);
+        return {
+          ...record,
+          is_late: lateDuration.minutes > 0,
+          late_duration: lateDuration.minutes
+        };
+      });
+
       const uniqueEmployees = new Set(records.map(r => r.employee_id));
       const totalHours = records.reduce((sum, record) => sum + (record.total_hours || 0), 0);
       const lateCount = records.filter(r => r.is_late).length;
@@ -146,7 +196,7 @@ export const Reports: React.FC = () => {
         totalHours,
         averageHours: records.length > 0 ? totalHours / records.length : 0,
         lateCount,
-        absentCount: 0, // Would need to calculate based on expected vs actual attendance
+        absentCount: 0,
         presentCount,
         halfDayCount
       };
@@ -159,16 +209,96 @@ export const Reports: React.FC = () => {
     }
   };
 
-  const formatTime = (timeString: string | null): string => {
-    if (!timeString) return '-';
-    return format(new Date(timeString), 'h:mm a');
+  const generatePDF = async () => {
+    setLoading(true);
+    try {
+      const tableHeaders = [
+        'Employee Name',
+        'Department',
+        'First In',
+        'First Out',
+        'Second In',
+        'Second Out',
+        'Break',
+        'Hours',
+        'Status',
+        'Late By'
+      ];
+
+      const tableData = reportData?.records.map(record => [
+        `${record.employees.first_name} ${record.employees.last_name}`,
+        record.employees.departments?.name || '-',
+        formatTime(record.first_check_in),
+        formatTime(record.first_check_out),
+        formatTime(record.second_check_in),
+        formatTime(record.second_check_out),
+        `${record.break_duration || 0} min`,
+        `${record.total_hours?.toFixed(2) || 0}h`,
+        record.is_late ? 'Late' : 'On Time',
+        formatDuration(record.late_duration || 0)
+      ]) || [];
+
+      const pdf = new jsPDF();
+      pdf.setFontSize(16);
+      pdf.text(getReportTitle(), 14, 15);
+
+      // Add summary section
+      pdf.setFontSize(12);
+      pdf.text('Summary', 14, 25);
+      
+      autoTable(pdf, {
+        head: [tableHeaders],
+        body: tableData,
+        startY: 45,
+        theme: 'grid',
+        styles: {
+          fontSize: 8,
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 15 },
+          3: { cellWidth: 15 },
+          4: { cellWidth: 15 },
+          5: { cellWidth: 15 },
+          6: { cellWidth: 15 },
+          7: { cellWidth: 15 },
+          8: { cellWidth: 15 },
+          9: { cellWidth: 20 }
+        },
+        headStyles: {
+          fillColor: [85, 33, 181],
+          textColor: 255,
+          fontSize: 8,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [245, 247, 250]
+        },
+        margin: { top: 10 }
+      });
+
+      const fileName = `attendance-report-${reportType}-${selectedDate}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const formatDuration = (minutes: number): string => {
-    if (minutes === 0) return '0:00';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}:${mins.toString().padStart(2, '0')}`;
+  const getReportTitle = () => {
+    const date = new Date(selectedDate);
+    switch (reportType) {
+      case 'weekly':
+        return `Weekly Report - ${format(startOfWeek(date), 'MMM dd')} to ${format(endOfWeek(date), 'MMM dd, yyyy')}`;
+      case 'monthly':
+        return `Monthly Report - ${format(date, 'MMMM yyyy')}`;
+      default:
+        return `Daily Report - ${format(date, 'dd/MM/yyyy')}`;
+    }
   };
 
   const calculateWorkingDuration = (record: AttendanceRecord): string => {
@@ -210,57 +340,6 @@ export const Reports: React.FC = () => {
     }
   };
 
-  const downloadPDF = async () => {
-    if (!reportData) return;
-
-    const reportElement = document.getElementById('report-content');
-    if (!reportElement) return;
-
-    try {
-      const canvas = await html2canvas(reportElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape orientation for better table fit
-      
-      const imgWidth = 297; // A4 landscape width
-      const pageHeight = 210; // A4 landscape height
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      const fileName = `attendance-report-${reportType}-${selectedDate}.pdf`;
-      pdf.save(fileName);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-    }
-  };
-
-  const getReportTitle = () => {
-    const date = new Date(selectedDate);
-    switch (reportType) {
-      case 'weekly':
-        return `Weekly Report - ${format(startOfWeek(date), 'MMM dd')} to ${format(endOfWeek(date), 'MMM dd, yyyy')}`;
-      case 'monthly':
-        return `Monthly Report - ${format(date, 'MMMM yyyy')}`;
-      default:
-        return `Daily Report - ${format(date, 'dd/MM/yyyy')}`;
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -275,12 +354,25 @@ export const Reports: React.FC = () => {
             </p>
           </div>
           <button
-            onClick={downloadPDF}
+            onClick={generatePDF}
             disabled={!reportData || loading}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed mt-4 md:mt-0"
+            className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
+              loading 
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-purple-600 hover:bg-purple-700 text-white'
+            }`}
           >
-            <Download className="h-5 w-5 mr-2" />
-            Download PDF
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <Download className="h-5 w-5 mr-2" />
+                Download PDF
+              </>
+            )}
           </button>
         </div>
 
@@ -295,6 +387,8 @@ export const Reports: React.FC = () => {
                 value={reportType}
                 onChange={(e) => setReportType(e.target.value as 'daily' | 'weekly' | 'monthly')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                title="Select report type"
+                aria-label="Report Type"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -310,6 +404,9 @@ export const Reports: React.FC = () => {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                title="Select date"
+                aria-label="Date"
+                placeholder="Select date"
               />
             </div>
             <div>
@@ -320,6 +417,8 @@ export const Reports: React.FC = () => {
                 value={selectedDepartment}
                 onChange={(e) => setSelectedDepartment(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                title="Select department"
+                aria-label="Department"
               >
                 <option value="">All Departments</option>
                 {departments.map(dept => (
@@ -418,10 +517,7 @@ export const Reports: React.FC = () => {
                         Status
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Late Duration
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Late Minutes
+                        Late By
                       </th>
                     </tr>
                   </thead>
@@ -465,10 +561,7 @@ export const Reports: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {record.is_late ? formatDuration(record.late_duration || 0) : '0:00'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {record.late_duration || 0}
+                            {formatDuration(record.late_duration || 0)}
                           </td>
                         </tr>
                       );
