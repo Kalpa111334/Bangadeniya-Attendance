@@ -4,13 +4,38 @@ import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import { supabase } from '../lib/supabase'
 
+interface DatabaseRecord {
+  id: string
+  date: string
+  first_check_in: string
+  first_check_out: string | null
+  second_check_in: string | null
+  second_check_out: string | null
+  break_duration: number | null
+  late_duration: number | null
+  is_late: boolean
+  total_hours: number | null
+  employees: {
+    first_name: string
+    last_name: string
+    departments: {
+      name: string
+    }
+  }
+}
+
 interface AttendanceRecord {
   employee_name: string
   department: string
-  check_in: string
-  check_out: string
-  hours: number
+  date: string
+  first_in: string
+  first_out: string
+  second_in: string
+  second_out: string
+  break: string
+  hours: number | null
   status: string
+  late_by: string
 }
 
 export const Reports: React.FC = () => {
@@ -37,17 +62,24 @@ export const Reports: React.FC = () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
-        .from('attendance')
+        .from('attendance_records')
         .select(`
           id,
           date,
-          check_in,
-          check_out,
+          first_check_in,
+          first_check_out,
+          second_check_in,
+          second_check_out,
+          break_duration,
+          late_duration,
           is_late,
+          total_hours,
           employees (
             first_name,
             last_name,
-            department
+            departments (
+              name
+            )
           )
         `)
         .gte('date', dateRange.start)
@@ -55,18 +87,24 @@ export const Reports: React.FC = () => {
 
       if (error) throw error
 
-      const formattedData = data.map(record => {
-        const checkIn = new Date(record.check_in)
-        const checkOut = record.check_out ? new Date(record.check_out) : null
-        const hours = checkOut ? (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60) : null
+      const formattedData = (data as unknown as DatabaseRecord[]).map(record => {
+        const formatTime = (timestamp: string | null) => {
+          if (!timestamp) return '-'
+          return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
 
         return {
           employee_name: `${record.employees.first_name} ${record.employees.last_name}`,
-          department: record.employees.department,
-          check_in: checkIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          check_out: checkOut ? checkOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
-          hours: hours ? Number(hours.toFixed(1)) : null,
-          status: record.is_late ? 'Late' : 'Present'
+          department: record.employees.departments?.name || '-',
+          date: new Date(record.date).toLocaleDateString(),
+          first_in: formatTime(record.first_check_in),
+          first_out: formatTime(record.first_check_out),
+          second_in: formatTime(record.second_check_in),
+          second_out: formatTime(record.second_check_out),
+          break: record.break_duration ? `${record.break_duration}m` : '-',
+          hours: record.total_hours ? Number(record.total_hours.toFixed(1)) : null,
+          status: record.is_late ? 'Late' : 'Present',
+          late_by: record.late_duration ? `${record.late_duration}m` : '-'
         }
       })
 
@@ -93,14 +131,19 @@ export const Reports: React.FC = () => {
     const tableData = reportData.map(record => [
       record.employee_name,
       record.department,
-      record.check_in,
-      record.check_out,
+      record.date,
+      record.first_in,
+      record.first_out,
+      record.second_in,
+      record.second_out,
+      record.break,
       record.hours ? `${record.hours}h` : '-',
-      record.status
+      record.status,
+      record.late_by
     ])
     
     // Add table
-    const columns = ['Employee', 'Department', 'Check In', 'Check Out', 'Hours', 'Status']
+    const columns = ['Employee Name', 'Department', 'Date', 'First In', 'First Out', 'Second In', 'Second Out', 'Break', 'Hours', 'Status', 'Late By']
     
     // @ts-ignore - autoTable plugin types
     doc.autoTable({
@@ -219,12 +262,17 @@ export const Reports: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Check In</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Check Out</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Hours</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Employee Name</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Department</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">First In</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">First Out</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Second In</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Second Out</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Break</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Hours</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-white bg-purple-600 uppercase">Late By</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -232,19 +280,24 @@ export const Reports: React.FC = () => {
                 <tr key={index}>
                   <td className="px-4 py-2 text-sm text-gray-900">{record.employee_name}</td>
                   <td className="px-4 py-2 text-sm text-gray-900">{record.department}</td>
-                  <td className="px-4 py-2 text-sm text-gray-900">{record.check_in}</td>
-                  <td className="px-4 py-2 text-sm text-gray-900">{record.check_out}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900">{record.date}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900">{record.first_in}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900">{record.first_out}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900">{record.second_in}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900">{record.second_out}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900">{record.break}</td>
                   <td className="px-4 py-2 text-sm text-gray-900">{record.hours ? `${record.hours}h` : '-'}</td>
-                <td className="px-4 py-2">
+                  <td className="px-4 py-2">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                       record.status === 'Late' 
                         ? 'bg-orange-100 text-orange-800'
                         : 'bg-green-100 text-green-800'
                     }`}>
                       {record.status}
-                  </span>
-                </td>
-              </tr>
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-sm text-gray-900">{record.late_by}</td>
+                </tr>
               ))}
             </tbody>
           </table>

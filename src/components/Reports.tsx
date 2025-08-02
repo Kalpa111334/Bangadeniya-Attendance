@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   Download, 
-  Calendar, 
-  Filter,
   Users,
   Clock,
   TrendingUp,
@@ -14,7 +12,7 @@ import { supabase } from '../lib/supabase';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
+
 
 interface AttendanceRecord {
   id: string;
@@ -213,6 +211,7 @@ export const Reports: React.FC = () => {
     setLoading(true);
     try {
       const tableHeaders = [
+        'Date',
         'Employee Name',
         'Department',
         'First In',
@@ -226,6 +225,7 @@ export const Reports: React.FC = () => {
       ];
 
       const tableData = reportData?.records.map(record => [
+        format(new Date(record.date), 'dd/MM/yyyy'),
         `${record.employees.first_name} ${record.employees.last_name}`,
         record.employees.departments?.name || '-',
         formatTime(record.first_check_in),
@@ -245,27 +245,66 @@ export const Reports: React.FC = () => {
       // Add summary section
       pdf.setFontSize(12);
       pdf.text('Summary', 14, 25);
+
+      // Summary table
+      const summaryData = [
+        ['Total Employees', 'Present', 'Late', 'Half-Day', 'Total Hours', 'Avg Hours/Day'],
+        [
+          reportData?.summary.totalEmployees.toString() || '0',
+          reportData?.summary.presentCount.toString() || '0',
+          reportData?.summary.lateCount.toString() || '0',
+          reportData?.summary.halfDayCount.toString() || '0',
+          (reportData?.summary.totalHours || 0).toFixed(1),
+          (reportData?.summary.averageHours || 0).toFixed(1)
+        ]
+      ];
+
+      autoTable(pdf, {
+        body: summaryData,
+        startY: 30,
+        theme: 'grid',
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 25 }
+        },
+        headStyles: {
+          fillColor: [85, 33, 181],
+          textColor: 255,
+          fontSize: 8,
+          fontStyle: 'bold'
+        }
+      });
       
+      // Main attendance table
       autoTable(pdf, {
         head: [tableHeaders],
         body: tableData,
-        startY: 45,
+        startY: 60,
         theme: 'grid',
         styles: {
           fontSize: 8,
           cellPadding: 3
         },
         columnStyles: {
-          0: { cellWidth: 30 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 15 },
-          3: { cellWidth: 15 },
-          4: { cellWidth: 15 },
-          5: { cellWidth: 15 },
-          6: { cellWidth: 15 },
-          7: { cellWidth: 15 },
-          8: { cellWidth: 15 },
-          9: { cellWidth: 20 }
+          0: { cellWidth: 20 },  // Date
+          1: { cellWidth: 30 },  // Employee Name
+          2: { cellWidth: 25 },  // Department
+          3: { cellWidth: 15 },  // First In
+          4: { cellWidth: 15 },  // First Out
+          5: { cellWidth: 15 },  // Second In
+          6: { cellWidth: 15 },  // Second Out
+          7: { cellWidth: 15 },  // Break
+          8: { cellWidth: 15 },  // Hours
+          9: { cellWidth: 15 },  // Status
+          10: { cellWidth: 15 }  // Late By
         },
         headStyles: {
           fillColor: [85, 33, 181],

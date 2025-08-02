@@ -113,10 +113,10 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
       );
 
       scannerRef.current = qrScanner;
-      await qrScanner.start();
+        await qrScanner.start();
 
       updateScannerState({ status: 'ready' });
-      startLightLevelMonitoring();
+        startLightLevelMonitoring();
     } catch (error: any) {
       handleError(error);
     }
@@ -186,8 +186,8 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
       if (!existingRecord) {
         // First check-in of the day
         updateData = {
-          employee_id: employee.id,
-          date: today,
+            employee_id: employee.id,
+            date: today,
           first_check_in: now.toISOString(),
           is_late: await isLate(now),
           total_hours: 0
@@ -227,8 +227,8 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
       }
 
       // Perform the database update
-      const { error: updateError } = await supabase
-        .from('attendance_records')
+        const { error: updateError } = await supabase
+          .from('attendance_records')
         .upsert({
           ...existingRecord,
           ...updateData
@@ -253,11 +253,11 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
   };
 
   const isLate = async (checkInTime: Date): Promise<boolean> => {
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'work_start_time')
-      .single();
+      const { data: settings } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'work_start_time')
+        .single();
 
     const startTime = settings?.value || '09:00';
     const [hours, minutes] = startTime.split(':').map(Number);
@@ -351,7 +351,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
     try {
       if (scannerRef.current) {
         if (scannerState.flashEnabled) {
-          await scannerRef.current.turnFlashOff();
+        await scannerRef.current.turnFlashOff();
         } else {
           await scannerRef.current.turnFlashOn();
         }
@@ -377,11 +377,11 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
 
   const cleanup = (): void => {
     if (scannerRef.current) {
-      scannerRef.current.stop();
-      scannerRef.current.destroy();
+        scannerRef.current.stop();
+        scannerRef.current.destroy();
       scannerRef.current = null;
     }
-
+    
     if (lightMonitoringIntervalRef.current !== null) {
       window.clearInterval(lightMonitoringIntervalRef.current);
       lightMonitoringIntervalRef.current = null;
@@ -438,15 +438,15 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-4 w-full max-w-lg mx-4">
         <div className="relative">
-          <video
-            ref={videoRef}
+                <video
+                  ref={videoRef}
             className="w-full aspect-square object-cover rounded-lg"
           />
           
           {/* Scanner overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center">
             <Target className="w-48 h-48 text-white opacity-50" />
-          </div>
+                      </div>
 
           {/* Status indicators */}
           <div className="absolute top-4 left-4 flex items-center space-x-2">
@@ -456,7 +456,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
               <WifiOff className="text-red-500" size={20} />
             )}
             <div className={`h-3 w-3 rounded-full ${getLightLevelClass(scannerState.lightLevel)}`} />
-          </div>
+                </div>
 
           {/* Controls */}
           <div className="absolute bottom-4 right-4 flex space-x-2">
@@ -472,17 +472,17 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
                 )}
               </button>
             )}
-          </div>
+            </div>
 
           {/* Error display */}
           {scannerState.error && (
             <div className="absolute bottom-4 left-4 right-16 bg-red-100 text-red-700 p-2 rounded-lg text-sm flex items-center">
               <AlertCircle size={16} className="mr-2" />
               {scannerState.error}
-            </div>
-          )}
-        </div>
-
+              </div>
+            )}
+              </div>
+              
         {/* Close button */}
         <div className="mt-4 flex justify-end">
           <button
@@ -492,8 +492,8 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
             <X size={20} className="mr-2" />
             Close Scanner
           </button>
-        </div>
-      </div>
-    </div>
+                </div>
+            </div>
+          </div>
   );
 };
