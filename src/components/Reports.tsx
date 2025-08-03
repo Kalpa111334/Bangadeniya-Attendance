@@ -172,15 +172,17 @@ export const Reports: React.FC = () => {
 
       if (error) throw error;
 
-      // Process data
-      const records = (attendanceData || []).map(record => {
-        const lateDuration = calculateLateDuration(record.first_check_in);
-        return {
-          ...record,
-          is_late: lateDuration.minutes > 0,
-          late_duration: lateDuration.minutes
-        };
-      });
+      // Process data and sort by date
+      const records = (attendanceData || [])
+        .map(record => {
+          const lateDuration = calculateLateDuration(record.first_check_in);
+          return {
+            ...record,
+            is_late: lateDuration.minutes > 0,
+            late_duration: lateDuration.minutes
+          };
+        })
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       const uniqueEmployees = new Set(records.map(r => r.employee_id));
       const totalHours = records.reduce((sum, record) => sum + (record.total_hours || 0), 0);
